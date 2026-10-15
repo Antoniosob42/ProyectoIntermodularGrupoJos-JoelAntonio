@@ -1,0 +1,22 @@
+{
+  "sesion_actual": {
+
+    "id": "",
+    "activa": false,
+    "inicio": 0,
+    "ultimo_dato": {
+      "timestamp": 0,
+      "latitud": 0,
+      "longitud": 0,
+      "velocidad": 0,
+      "aceleracion_x": 0,
+      "aceleracion_y": 0,
+      "aceleracion_z": 0
+
+    }
+
+  },
+  
+  "sesiones": {}
+
+}
