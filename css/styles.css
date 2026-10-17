@@ -1,0 +1,176 @@
+/* Reset básico */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+    background-color: #ffffff;
+    color: #000000;
+    padding: 10px 20px;
+}
+
+/* Header / Barra Superior */
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #dedede;
+    padding: 8px 15px;
+    margin-bottom: 20px;
+}
+
+.title {
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.battery-container {
+    display: flex;
+    align-items: center;
+    background-color: #999999;
+    padding: 6px 15px;
+    border-radius: 12px;
+    width: 45%;
+    gap: 15px;
+}
+
+.battery-label {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.battery-bar-outer {
+    flex-grow: 1;
+    height: 10px;
+    background-color: #666666;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.battery-bar-inner {
+    height: 100%;
+    background-color: #00ff44; /* Verde brillante como el prototipo */
+}
+
+.battery-value {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.btn-export {
+    background-color: #999999;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-export:hover {
+    background-color: #888888;
+}
+
+/* Layout Principal */
+.dashboard-grid {
+    display: flex;
+    gap: 20px;
+}
+
+.left-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.right-panel {
+    flex: 1;
+    display: flex;
+}
+
+/* Tarjetas */
+.card {
+    background-color: #dedede;
+    padding: 10px 15px;
+    border-radius: 0px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.card-title {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.card-value {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Barras de progreso simples (Velocidad y Fuerza G) */
+.progress-line {
+    width: 100%;
+    height: 8px;
+    background-color: #888888;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #000000;
+}
+
+/* Gráfica Chart.js */
+.card-chart {
+    background-color: #dedede;
+}
+
+.chart-container {
+    background-color: #ffffff;
+    padding: 10px;
+    margin-top: 8px;
+    height: 180px;
+    position: relative;
+}
+
+/* Tiempo de Sesión */
+.session-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Mapa */
+.card-map {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    height: 100%;
+    min-height: 400px;
+}
+
+.map-header {
+    background-color: #888888;
+    color: #000000;
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    padding: 8px 0;
+}
+
+#map {
+    flex-grow: 1;
+    width: 100%;
+    background-color: #e0e0e0;
+}
