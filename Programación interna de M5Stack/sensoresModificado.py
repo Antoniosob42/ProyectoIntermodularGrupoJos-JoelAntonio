@@ -10,8 +10,8 @@ import gc
 BASE_URL = "https://b-42-4988d-default-rtdb.europe-west1.firebasedatabase.app"
 
 # CAMBIO 2: las credenciales no se publican; rellénalas en tu copia local.
-WIFI_SSID = "PON_AQUI_EL_NOMBRE_DE_TU_WIFI"
-WIFI_PASSWORD = "PON_AQUI_LA_CONTRASENA_DE_TU_WIFI"
+WIFI_SSID = "B14-ALUMNOS"
+WIFI_PASSWORD = "56#?qwal"
 
 # CAMBIO 3: enviamos una lectura por segundo en vez de cinco para no generar
 # peticiones innecesarias mientras probamos el proyecto.
