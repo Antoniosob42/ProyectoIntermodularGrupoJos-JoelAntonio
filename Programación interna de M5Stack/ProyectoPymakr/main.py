@@ -1,11 +1,12 @@
 import M5
-from M5 import Widgets, BtnA, BtnB
+from M5 import Widgets
 import time
 import network
 import requests
 import json
 import gc
 import math
+import random
 
 # URL de la Realtime Database de Firebase
 BASE_URL = "https://b-42-4988d-default-rtdb.europe-west1.firebasedatabase.app"
@@ -29,6 +30,23 @@ INICIO_SESION = 0
 velocidad_actual = 0.0
 ultimo_tiempo_vel = time.ticks_ms()
 
+# --- GENERADOR DINÁMICO DE CIRCUITOS DE CARRERAS ---
+BASE_LAT = 38.9848
+BASE_LNG = -3.9274
+track_theta = 0.0
+
+try:
+    random.seed(time.ticks_ms())
+    TRACK_FREQ_X = random.randint(2, 5)
+    TRACK_FREQ_Y = random.randint(2, 6)
+    TRACK_SIZE_LAT = 0.0006 + (random.randint(0, 4) * 0.0002)
+    TRACK_SIZE_LNG = 0.0008 + (random.randint(0, 4) * 0.0002)
+except Exception:
+    TRACK_FREQ_X = 3
+    TRACK_FREQ_Y = 4
+    TRACK_SIZE_LAT = 0.0006
+    TRACK_SIZE_LNG = 0.0008
+
 def timestamp_ms():
     try:
         diferencia = 946684800 if time.gmtime(0)[0] == 2000 else 0
@@ -36,7 +54,6 @@ def timestamp_ms():
     except Exception:
         return int(time.ticks_ms())
 
-# Función para obtener la hora formateada (HH:MM:SS)
 def obtener_hora_exacta():
     try:
         t = time.localtime()
@@ -169,31 +186,35 @@ def registrar_marca_boton():
     else:
         print("Sin Wi-Fi o sesión activa, no se pudo enviar la marca.")
 
-# Función para finalizar sesión y apagar el hardware por completo (consumo 0)
 def apagar_dispositivo():
     print("Apagando dispositivo por solicitud del usuario...")
     finalizar_sesion()
     
-    # Mostrar aviso en pantalla antes del apagado
-    Widgets.fillScreen(0x000000)
-    Widgets.Label("Sistema Apagado", 60, 100, 1.0, 0xFF0000, 0x000000, Widgets.FONTS.DejaVu18)
-    time.sleep(1.5)
+    try:
+        Widgets.fillScreen(0x000000)
+        Widgets.Label("Sistema Apagado", 60, 100, 1.0, 0xFF0000, 0x000000, Widgets.FONTS.DejaVu18)
+    except Exception:
+        pass
+    
+    time.sleep(1.0)
     
     try:
-        M5.Power.powerOff()  # Corta la alimentación del PMIC (consumo cero real en batería)
+        M5.Power.powerOff()
     except Exception as e:
         print("Error al apagar hardware:", e)
 
 def check_wifi(wifi):
     global wifi_conectado, ULTIMA_REVISION_WIFI
+    try:
+        ahora = time.ticks_ms()
+        if time.ticks_diff(ahora, ULTIMA_REVISION_WIFI) < WIFI_CHECK_INTERVAL:
+            return wifi_conectado
 
-    ahora = time.ticks_ms()
-    if time.ticks_diff(ahora, ULTIMA_REVISION_WIFI) < WIFI_CHECK_INTERVAL:
+        ULTIMA_REVISION_WIFI = ahora
+        wifi_conectado = wifi.isconnected()
         return wifi_conectado
-
-    ULTIMA_REVISION_WIFI = ahora
-    wifi_conectado = wifi.isconnected()
-    return wifi_conectado
+    except Exception:
+        return wifi_conectado
 
 def leer_aceleracion():
     try:
@@ -208,73 +229,102 @@ def leer_aceleracion():
 
 def calcular_velocidad(accel_x):
     global velocidad_actual, ultimo_tiempo_vel
-    
-    ahora = time.ticks_ms()
-    dt = time.ticks_diff(ahora, ultimo_tiempo_vel) / 1000.0
-    if dt <= 0:
-        dt = 0.02
-    ultimo_tiempo_vel = ahora
+    try:
+        ahora = time.ticks_ms()
+        dt = time.ticks_diff(ahora, ultimo_tiempo_vel) / 1000.0
+        if dt <= 0 or dt > 1.0:
+            dt = 0.02
+        ultimo_tiempo_vel = ahora
 
-    if abs(accel_x) < 0.03:
-        accel_x = 0.0
-        velocidad_actual *= 0.90
-        if velocidad_actual < 0.2:
-            velocidad_actual = 0.0
+        if abs(accel_x) < 0.03:
+            accel_x = 0.0
+            velocidad_actual *= 0.90
+            if velocidad_actual < 0.2:
+                velocidad_actual = 0.0
 
-    accel_ms2 = accel_x * 9.81
-    velocidad_ms = (velocidad_actual / 3.6) + (accel_ms2 * dt)
-    
-    if velocidad_ms < 0:
-        velocidad_ms = 0.0
+        accel_ms2 = accel_x * 9.81
+        velocidad_ms = (velocidad_actual / 3.6) + (accel_ms2 * dt)
+        
+        if velocidad_ms < 0:
+            velocidad_ms = 0.0
 
-    velocidad_actual = velocidad_ms * 3.6
-    return round(velocidad_actual, 1)
+        # Velocidad base real en km/h
+        vel_calculada = velocidad_ms * 3.6
+        
+        # Multiplicador x3 solicitado para pruebas ágiles de rutas
+        vel_multiplicada = vel_calculada * 3.0
+        
+        velocidad_actual = vel_calculada
+        return round(vel_multiplicada, 1)
+    except Exception:
+        return 0.0
 
 def leer_rpm(accel_y):
-    rpm = int(abs(accel_y) * 3000)
-    return min(rpm, 8500)
+    try:
+        rpm = int(abs(accel_y) * 3000)
+        return min(rpm, 8500)
+    except Exception:
+        return 0
 
-def leer_gps():
-    return {"lat": 38.9848, "lng": -3.9274}
+def calcular_gps_circuito(velocidad, dt):
+    global track_theta, TRACK_FREQ_X, TRACK_FREQ_Y, TRACK_SIZE_LAT, TRACK_SIZE_LNG, BASE_LAT, BASE_LNG
+    try:
+        if velocidad > 0.5:
+            # Dividimos entre 40 (o ajustamos proporcionalmente) para que avance más rápido con el x3
+            delta_theta = (velocidad / 40.0) * dt
+            track_theta += delta_theta
+
+        lat = BASE_LAT + TRACK_SIZE_LAT * (math.sin(track_theta) + 0.3 * math.sin(TRACK_FREQ_X * track_theta))
+        lng = BASE_LNG + TRACK_SIZE_LNG * (math.cos(track_theta) + 0.3 * math.cos(TRACK_FREQ_Y * track_theta))
+        
+        return {"lat": round(lat, 5), "lng": round(lng, 5)}
+    except Exception:
+        return {"lat": BASE_LAT, "lng": BASE_LNG}
 
 def finalizar_sesion():
-    if not ID_SESION or not wifi.isconnected():
+    if not ID_SESION:
         return
-
-    firebase_request("PATCH", "sesiones/" + ID_SESION, {
-        "fin": timestamp_ms(),
-        "estado": "finalizada"
-    })
-    firebase_request("PATCH", "sesion_actual", {
-        "activa": False,
-        "id": "",
-        "inicio": 0
-    })
-    print("Sesión finalizada")
+    try:
+        print("Actualizando Firebase: sesión finalizada...")
+        firebase_request("PATCH", "sesiones/" + ID_SESION, {
+            "fin": timestamp_ms(),
+            "estado": "finalizada"
+        })
+        firebase_request("PATCH", "sesion_actual", {
+            "activa": False,
+            "id": "",
+            "inicio": 0
+        })
+        print("Sesión cerrada correctamente en Firebase.")
+    except Exception as e:
+        print("Error al finalizar sesión:", e)
 
 M5.begin()
 
 # --- Configuración de pantalla ---
-Widgets.fillScreen(0x111111)
+try:
+    Widgets.fillScreen(0x111111)
 
-label_status = Widgets.Label(
-    "A: Marcar | B: Apagar", 10, 10, 0.6, 0xFFFFFF, 0x111111, Widgets.FONTS.DejaVu18
-)
-label_speed = Widgets.Label(
-    "Velocidad: 0.0 km/h", 20, 50, 1.0, 0x00FF00, 0x111111, Widgets.FONTS.DejaVu18
-)
-label_rpm = Widgets.Label(
-    "RPM: 0", 20, 90, 1.0, 0xFFFF00, 0x111111, Widgets.FONTS.DejaVu18
-)
-label_time = Widgets.Label(
-    "Hora: 00:00:00", 20, 130, 1.0, 0xFF00FF, 0x111111, Widgets.FONTS.DejaVu18
-)
-label_gps = Widgets.Label(
-    "GPS: Fijo", 20, 170, 1.0, 0x00FFFF, 0x111111, Widgets.FONTS.DejaVu18
-)
-label_battery = Widgets.Label(
-    "Bateria: %", 20, 210, 0.8, 0xFFFFFF, 0x111111, Widgets.FONTS.DejaVu18
-)
+    label_status = Widgets.Label(
+        "A: Marcar | B: Apagar", 10, 10, 0.6, 0xFFFFFF, 0x111111, Widgets.FONTS.DejaVu18
+    )
+    label_speed = Widgets.Label(
+        "Velocidad: 0.0 km/h", 20, 50, 1.0, 0x00FF00, 0x111111, Widgets.FONTS.DejaVu18
+    )
+    label_rpm = Widgets.Label(
+        "RPM: 0", 20, 90, 1.0, 0xFFFF00, 0x111111, Widgets.FONTS.DejaVu18
+    )
+    label_time = Widgets.Label(
+        "Hora: 00:00:00", 20, 130, 1.0, 0xFF00FF, 0x111111, Widgets.FONTS.DejaVu18
+    )
+    label_gps = Widgets.Label(
+        "GPS: Circuito x3", 20, 170, 1.0, 0x00FFFF, 0x111111, Widgets.FONTS.DejaVu18
+    )
+    label_battery = Widgets.Label(
+        "Bateria: %", 20, 210, 0.8, 0xFFFFFF, 0x111111, Widgets.FONTS.DejaVu18
+    )
+except Exception as e:
+    print("Error inicializando pantalla:", e)
 
 wifi = network.WLAN(network.STA_IF)
 wifi.active(True)
@@ -289,35 +339,54 @@ wifi_conectado = wifi.isconnected()
 print("WiFi conectado:", wifi_conectado)
 
 last_send_time = time.ticks_ms()
-print("Iniciando sistema de telemetría...")
+ultimo_tiempo_bucle = time.ticks_ms()
+print("Iniciando sistema de telemetría con velocidad x3...")
 
 try:
     while True:
-        M5.update()
+        try:
+            M5.update()
+        except Exception:
+            pass
+
         now = time.ticks_ms()
-        battery = M5.Power.getBatteryLevel()
+        dt = time.ticks_diff(now, ultimo_tiempo_bucle) / 1000.0
+        if dt <= 0 or dt > 1.0:
+            dt = 0.02
+        ultimo_tiempo_bucle = now
 
-        # Comprobar botones táctiles
-        if BtnA.wasPressed():
-            registrar_marca_boton()
+        try:
+            battery = M5.Power.getBatteryLevel()
+        except Exception:
+            battery = 0
+
+        try:
+            if M5.BtnA.wasPressed():
+                registrar_marca_boton()
+        except Exception:
+            pass
             
-        if BtnB.wasPressed():
-            apagar_dispositivo()
-            break
+        try:
+            if M5.BtnB.wasPressed():
+                apagar_dispositivo()
+                break
+        except Exception:
+            pass
 
-        # Lectura de sensores y hora actual
         acel = leer_aceleracion()
         velocidad = calcular_velocidad(acel["x"])
         rpm = leer_rpm(acel["y"])
-        gps_pos = leer_gps()
+        gps_pos = calcular_gps_circuito(velocidad, dt)
         hora_actual = obtener_hora_exacta()
 
-        # Actualizar pantalla local
-        label_speed.setText(f"Velocidad: {velocidad:.1f} km/h")
-        label_rpm.setText(f"RPM: {rpm}")
-        label_time.setText(f"Hora: {hora_actual}")
-        label_gps.setText(f"GPS: {gps_pos['lat']}, {gps_pos['lng']}")
-        label_battery.setText(f"Bateria: {battery}%")
+        try:
+            label_speed.setText(f"Velocidad: {velocidad:.1f} km/h")
+            label_rpm.setText(f"RPM: {rpm}")
+            label_time.setText(f"Hora: {hora_actual}")
+            label_gps.setText(f"GPS: {gps_pos['lat']}, {gps_pos['lng']}")
+            label_battery.setText(f"Bateria: {battery}%")
+        except Exception:
+            pass
 
         if time.ticks_diff(now, last_send_time) >= FRECUENCIA_ENVIO_MS:
             last_send_time = now
@@ -343,5 +412,6 @@ try:
 
         time.sleep(0.02)
 
-except KeyboardInterrupt:
+except BaseException as e:
+    print("Se ha producido una salida o excepción en el sistema:", e)
     finalizar_sesion()
